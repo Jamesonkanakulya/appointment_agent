@@ -1,4 +1,7 @@
 .env
+.env.dokploy
+.env.production
+.env.local
 __pycache__/
 *.pyc
 *.pyo
