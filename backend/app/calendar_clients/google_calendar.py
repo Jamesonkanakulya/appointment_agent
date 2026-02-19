@@ -24,13 +24,17 @@ class GoogleCalendarClient(CalendarClient):
         credentials = service_account.Credentials.from_service_account_info(
             creds_info, scopes=SCOPES
         )
-        # If the calendar belongs to a specific user, impersonate them
-        if "client_email" in creds_info and calendar_id != creds_info.get("client_email"):
-            # Try delegated access (requires domain-wide delegation)
-            try:
-                credentials = credentials.with_subject(calendar_id)
-            except Exception:
-                pass  # Fall back to direct service account calendar access
+        # Only impersonate if calendar_id is a plain user email (DWD use case).
+        # Skip if it's a resource/group calendar, a domain, or the SA's own email.
+        sa_email = creds_info.get("client_email", "")
+        is_user_email = (
+            "@" in calendar_id
+            and not calendar_id.endswith("@group.calendar.google.com")
+            and not calendar_id.endswith("resource.calendar.google.com")
+            and calendar_id != sa_email
+        )
+        if is_user_email:
+            credentials = credentials.with_subject(calendar_id)
 
         self._service = build("calendar", "v3", credentials=credentials, cache_discovery=False)
 

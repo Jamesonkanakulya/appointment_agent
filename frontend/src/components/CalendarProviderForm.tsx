@@ -60,16 +60,21 @@ export default function CalendarProviderForm({ form, setField, instance }: Props
             )}
           </div>
 
-          <Field
-            label="Service Account JSON"
-            hint={instance?.google_service_account_configured ? '✓ Credentials already saved — paste new JSON to update' : 'Paste the full content of your service account JSON key file'}
-          >
+          <Field label="Service Account JSON">
+            {instance?.google_service_account_configured && !form.google_service_account_json && (
+              <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                <span>✓</span>
+                <span>Service account credentials saved. Paste new JSON below to replace.</span>
+              </div>
+            )}
             <textarea
               value={form.google_service_account_json}
               onChange={(e) => setField('google_service_account_json', e.target.value)}
               rows={8}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              placeholder='{"type": "service_account", "project_id": "...", "private_key": "...", ...}'
+              placeholder={instance?.google_service_account_configured
+                ? '(Leave blank to keep existing credentials, or paste new JSON to replace)'
+                : '{"type": "service_account", "project_id": "...", "private_key": "...", ...}'}
             />
           </Field>
 
@@ -132,16 +137,19 @@ export default function CalendarProviderForm({ form, setField, instance }: Props
             </Field>
           </div>
 
-          <Field
-            label="Client Secret"
-            hint={instance?.microsoft_secret_configured ? '✓ Secret already saved — enter new value to update' : 'The secret value (not the secret ID)'}
-          >
+          <Field label="Client Secret">
+            {instance?.microsoft_secret_configured && !form.microsoft_client_secret && (
+              <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+                <span>✓</span>
+                <span>Client secret saved. Enter a new value to replace it.</span>
+              </div>
+            )}
             <input
               type="password"
               value={form.microsoft_client_secret}
               onChange={(e) => setField('microsoft_client_secret', e.target.value)}
               className="input"
-              placeholder={instance?.microsoft_secret_configured ? '(unchanged)' : 'Paste your client secret here'}
+              placeholder={instance?.microsoft_secret_configured ? '(leave blank to keep existing secret)' : 'Paste your client secret here'}
             />
           </Field>
 
