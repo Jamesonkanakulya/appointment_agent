@@ -26,17 +26,22 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = False
 
-    def get_database_url(self) -> str:
-        """Return a safe database URL, building from components if available."""
+    def get_database_url(self):
+        """Return a SQLAlchemy URL object or string for the database connection.
+
+        When DB_* components are provided, returns a URL object so that
+        SQLAlchemy passes the password directly to asyncpg without string
+        serialisation (str(URL) hides the password as *** in SQLAlchemy 2.x).
+        """
         if self.db_host and self.db_user and self.db_password and self.db_name:
             from sqlalchemy.engine.url import URL
-            return str(URL.create(
+            return URL.create(
                 drivername="postgresql+asyncpg",
                 username=self.db_user,
-                password=self.db_password,  # URL.create handles special chars safely
+                password=self.db_password,  # passed as-is; no percent-encoding issues
                 host=self.db_host,
                 database=self.db_name,
-            ))
+            )
         return self.database_url
 
 
