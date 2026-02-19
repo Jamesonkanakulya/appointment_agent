@@ -24,7 +24,10 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://appuser:${DB_PASSWORD:-changeme}@db/appointment_agent
+      DB_HOST: db
+      DB_USER: appuser
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+      DB_NAME: appointment_agent
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
