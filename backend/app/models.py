@@ -27,6 +27,13 @@ class GlobalSettings(Base):
     llm_model: Mapped[str] = mapped_column(String(100), default="openai/gpt-4o")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # SMTP email settings (optional)
+    smtp_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_port: Mapped[int] = mapped_column(Integer, default=587)
+    smtp_user: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_password: Mapped[str | None] = mapped_column(Text, nullable=True)  # Fernet-encrypted
+    smtp_from_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
 
 class Instance(Base):
     __tablename__ = "instances"
@@ -35,18 +42,9 @@ class Instance(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     webhook_path: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
 
-    # Calendar provider
-    calendar_provider: Mapped[str] = mapped_column(String(20), default="google")  # 'google' | 'microsoft'
-
-    # Google Calendar
-    google_service_account_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # encrypted
-    google_calendar_id: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # Microsoft 365
-    microsoft_client_id: Mapped[str | None] = mapped_column(Text, nullable=True)
-    microsoft_client_secret: Mapped[str | None] = mapped_column(Text, nullable=True)  # encrypted
-    microsoft_tenant_id: Mapped[str | None] = mapped_column(Text, nullable=True)
-    microsoft_user_email: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Cal.com credentials
+    calcom_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)  # Fernet-encrypted
+    calcom_event_type_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Common config
     timezone: Mapped[str] = mapped_column(String(50), default="UTC")
@@ -73,7 +71,7 @@ class GuestRecord(Base):
     booking_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="Active")
     meeting_title: Mapped[str | None] = mapped_column(Text, nullable=True)
-    calendar_event_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    calendar_event_id: Mapped[str | None] = mapped_column(Text, nullable=True)  # Cal.com booking uid
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

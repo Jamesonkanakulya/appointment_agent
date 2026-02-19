@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 import uuid
@@ -30,14 +30,26 @@ class GlobalSettingsUpdate(BaseModel):
     llm_base_url: Optional[str] = None
     llm_api_key: Optional[str] = None
     llm_model: Optional[str] = None
+    # SMTP
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from_email: Optional[str] = None
 
 
 class GlobalSettingsResponse(BaseModel):
     llm_provider: str
     llm_base_url: str
-    llm_api_key_set: bool  # Don't expose the actual key
+    llm_api_key_set: bool
     llm_model: str
     updated_at: datetime
+    # SMTP (password not exposed)
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_user: Optional[str] = None
+    smtp_from_email: Optional[str] = None
+    smtp_configured: bool = False
 
     class Config:
         from_attributes = True
@@ -47,16 +59,8 @@ class GlobalSettingsResponse(BaseModel):
 class InstanceCreate(BaseModel):
     name: str
     webhook_path: str
-    calendar_provider: str = "google"
-
-    google_service_account_json: Optional[str] = None
-    google_calendar_id: Optional[str] = None
-
-    microsoft_client_id: Optional[str] = None
-    microsoft_client_secret: Optional[str] = None
-    microsoft_tenant_id: Optional[str] = None
-    microsoft_user_email: Optional[str] = None
-
+    calcom_api_key: Optional[str] = None
+    calcom_event_type_id: Optional[int] = None
     timezone: str = "UTC"
     timezone_offset: str = "+00:00"
     business_name: str
@@ -64,26 +68,24 @@ class InstanceCreate(BaseModel):
     workday_end: str = "17:00"
 
 
-class InstanceUpdate(InstanceCreate):
+class InstanceUpdate(BaseModel):
     name: Optional[str] = None
     webhook_path: Optional[str] = None
+    calcom_api_key: Optional[str] = None
+    calcom_event_type_id: Optional[int] = None
+    timezone: Optional[str] = None
+    timezone_offset: Optional[str] = None
     business_name: Optional[str] = None
+    workday_start: Optional[str] = None
+    workday_end: Optional[str] = None
 
 
 class InstanceResponse(BaseModel):
     id: uuid.UUID
     name: str
     webhook_path: str
-    calendar_provider: str
-
-    google_calendar_id: Optional[str] = None
-    google_service_account_configured: bool
-
-    microsoft_client_id: Optional[str] = None
-    microsoft_tenant_id: Optional[str] = None
-    microsoft_user_email: Optional[str] = None
-    microsoft_secret_configured: bool
-
+    calcom_event_type_id: Optional[int] = None
+    calcom_api_key_configured: bool
     timezone: str
     timezone_offset: str
     business_name: str

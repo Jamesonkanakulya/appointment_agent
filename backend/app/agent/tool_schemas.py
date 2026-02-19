@@ -1,16 +1,18 @@
 """
 LiteLLM tool schemas for the appointment booking agent.
-All tools are provider-agnostic — the tools.py dispatcher handles implementation.
+Tool names match exactly the user's system prompt specification.
 """
 
 TOOL_SCHEMAS = [
+    # ── Cal.com tools ─────────────────────────────────────────────────────────
+
     {
         "type": "function",
         "function": {
             "name": "check_availability",
             "description": (
-                "Check available appointment slots for a given date. "
-                "Returns a list of free time slots during business hours."
+                "Check available appointment slots for a given date via Cal.com. "
+                "Returns a list of free time slots. ALWAYS call this before creating a booking."
             ),
             "parameters": {
                 "type": "object",
@@ -24,14 +26,15 @@ TOOL_SCHEMAS = [
             }
         }
     },
+
     {
         "type": "function",
         "function": {
             "name": "create_booking",
             "description": (
-                "Create a new appointment booking on the calendar and record the guest. "
-                "A unique 4-digit PIN is generated and stored for future verification. "
-                "ONLY call this after confirming availability."
+                "Create a new appointment booking via Cal.com. "
+                "ONLY call this after confirming availability with check_availability. "
+                "Returns the booking uid needed for future cancel/reschedule operations."
             ),
             "parameters": {
                 "type": "object",
@@ -42,20 +45,24 @@ TOOL_SCHEMAS = [
                     },
                     "name": {"type": "string", "description": "Guest's full name"},
                     "email": {"type": "string", "description": "Guest's email address"},
-                    "title": {"type": "string", "description": "Meeting title"},
-                    "description": {"type": "string", "description": "Meeting description"}
+                    "title": {
+                        "type": "string",
+                        "description": "Meeting title / purpose of the appointment"
+                    }
                 },
-                "required": ["start", "name", "email", "title", "description"]
+                "required": ["start", "name", "email", "title"]
             }
         }
     },
+
     {
         "type": "function",
         "function": {
             "name": "get_booking_information",
             "description": (
-                "Retrieve existing upcoming bookings for a guest by their email address. "
-                "Returns booking details including event_id (needed for cancel/reschedule)."
+                "Retrieve existing upcoming bookings for a guest from Cal.com by their email address. "
+                "Returns booking details including uid (needed for cancel/reschedule), "
+                "date/time, title, and status. ALWAYS call this before cancel/reschedule."
             ),
             "parameters": {
                 "type": "object",
@@ -66,66 +73,90 @@ TOOL_SCHEMAS = [
             }
         }
     },
+
     {
         "type": "function",
         "function": {
             "name": "cancel_booking",
             "description": (
-                "Cancel an existing booking. Requires the event_id from get_booking_information. "
-                "PIN must be verified BEFORE calling this tool."
+                "Cancel an existing booking in Cal.com. "
+                "Requires the uid from get_booking_information. "
+                "PIN MUST be verified BEFORE calling this tool."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "event_id": {
+                    "uid": {
                         "type": "string",
-                        "description": "Calendar event ID from get_booking_information"
+                        "description": "Cal.com booking uid from get_booking_information"
                     },
-                    "email": {"type": "string", "description": "Guest's email address"},
                     "reason": {
                         "type": "string",
-                        "description": "Reason for cancellation (default: 'User requested cancellation')"
+                        "description": "Reason for cancellation (optional)"
                     }
                 },
-                "required": ["event_id", "email"]
+                "required": ["uid"]
             }
         }
     },
+
     {
         "type": "function",
         "function": {
             "name": "reschedule_booking",
             "description": (
-                "Reschedule an existing booking to a new time. "
-                "Requires the event_id from get_booking_information. "
-                "PIN must be verified BEFORE calling this tool. "
-                "A new unique PIN is generated after successful reschedule."
+                "Reschedule an existing booking to a new time via Cal.com. "
+                "Requires the uid from get_booking_information and the new start time. "
+                "PIN MUST be verified BEFORE calling this tool. "
+                "A new unique PIN should be generated after successful rescheduling."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "event_id": {
+                    "uid": {
                         "type": "string",
-                        "description": "Calendar event ID from get_booking_information"
+                        "description": "Cal.com booking uid from get_booking_information"
                     },
-                    "email": {"type": "string", "description": "Guest's email address"},
                     "new_start": {
                         "type": "string",
-                        "description": "New start time in ISO 8601 format"
+                        "description": "New start time in ISO 8601 format (e.g., 2026-02-21T14:00:00+04:00)"
                     }
                 },
-                "required": ["event_id", "email", "new_start"]
+                "required": ["uid", "new_start"]
             }
         }
     },
+
+    # ── Database / guest record tools ─────────────────────────────────────────
+
     {
         "type": "function",
         "function": {
-            "name": "add_guest_record",
+            "name": "search_guest",
             "description": (
-                "Add a new guest record to the database with a PIN code. "
-                "ONLY call this when creating a NEW booking (not for cancel/reschedule). "
-                "Generate a random 4-digit PIN and pass it here."
+                "Look up a guest record by email address in the database. "
+                "Returns the guest's name, PIN code (for internal verification only — NEVER reveal it), "
+                "booking time, and status. "
+                "ALWAYS call this before cancel or reschedule to retrieve the stored PIN."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "email": {"type": "string", "description": "Guest's email address"}
+                },
+                "required": ["email"]
+            }
+        }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "add_to_list",
+            "description": (
+                "Add a NEW guest record to the database. "
+                "Use ONLY when creating a brand new booking — NOT for cancel/reschedule. "
+                "Include the unique 4-digit PIN generated for this guest."
             ),
             "parameters": {
                 "type": "object",
@@ -134,73 +165,119 @@ TOOL_SCHEMAS = [
                     "email": {"type": "string", "description": "Guest's email address"},
                     "pin_code": {
                         "type": "string",
-                        "description": "4-digit PIN code (e.g., '4821'). Must be unique."
+                        "description": "Unique 4-digit PIN code (e.g., '4821')"
                     },
                     "booking_time": {
                         "type": "string",
-                        "description": "Booking time in ISO 8601 format"
+                        "description": "Booking start time in ISO 8601 format"
                     },
-                    "meeting_title": {"type": "string", "description": "Meeting title"},
-                    "calendar_event_id": {
+                    "status": {
                         "type": "string",
-                        "description": "Calendar event ID returned by create_booking"
+                        "enum": ["Active"],
+                        "description": "Record status — always 'Active' for new bookings"
+                    },
+                    "meeting_title": {
+                        "type": "string",
+                        "description": "Meeting title / purpose"
+                    },
+                    "booking_uid": {
+                        "type": "string",
+                        "description": "Cal.com booking uid returned by create_booking"
                     }
                 },
-                "required": ["name", "email", "pin_code", "booking_time", "meeting_title", "calendar_event_id"]
+                "required": ["name", "email", "pin_code", "booking_time", "status"]
             }
         }
     },
+
     {
         "type": "function",
         "function": {
-            "name": "search_guest_record",
+            "name": "update_the_list",
             "description": (
-                "Look up a guest record by email address. "
-                "Returns the guest's name, PIN code (for internal verification), "
-                "and booking status. ALWAYS call this before cancel/reschedule to get the PIN."
+                "Update an EXISTING guest record in the database. "
+                "Use for cancellations (status='Canceled') and rescheduling (new booking_time + new PIN). "
+                "Do NOT use this for new bookings — use add_to_list instead."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "email": {"type": "string", "description": "Guest's email address"}
-                },
-                "required": ["email"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "update_guest_record",
-            "description": (
-                "Update an existing guest record (status, PIN, booking time). "
-                "Use for cancel (status='Canceled') and reschedule (new booking_time + new PIN). "
-                "Do NOT use for new bookings — use add_guest_record instead."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "email": {"type": "string", "description": "Guest's email address (used to find the record)"},
+                    "email": {
+                        "type": "string",
+                        "description": "Guest's email address (used to find the record)"
+                    },
                     "status": {
                         "type": "string",
                         "enum": ["Active", "Canceled", "Rescheduled"],
-                        "description": "New status"
+                        "description": "New status for the record"
                     },
                     "pin_code": {
                         "type": "string",
-                        "description": "New 4-digit PIN (required for reschedule, keep same for cancel)"
+                        "description": "New 4-digit PIN (required for reschedule; keep existing for cancel)"
                     },
                     "booking_time": {
                         "type": "string",
                         "description": "New booking time in ISO 8601 (required for reschedule)"
                     },
-                    "calendar_event_id": {
+                    "meeting_title": {
                         "type": "string",
-                        "description": "Updated calendar event ID (if changed)"
+                        "description": "Updated meeting title (optional)"
+                    },
+                    "booking_uid": {
+                        "type": "string",
+                        "description": "Updated Cal.com booking uid (for reschedule)"
                     }
                 },
                 "required": ["email", "status"]
             }
         }
-    }
+    },
+
+    {
+        "type": "function",
+        "function": {
+            "name": "search_all_guests",
+            "description": (
+                "Retrieve all guest records from the database for this instance. "
+                "Use this to check existing PIN codes before generating a new one "
+                "to ensure uniqueness. Returns a list of {email, pin_code, name, status}."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+
+    # ── Email tool ────────────────────────────────────────────────────────────
+
+    {
+        "type": "function",
+        "function": {
+            "name": "send_booking_email",
+            "description": (
+                "Send an email notification to the guest after a booking action. "
+                "MUST be called after: (1) creating a booking, (2) canceling a booking, "
+                "(3) rescheduling a booking. Do NOT call for availability checks."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "guest_name": {"type": "string", "description": "Guest's full name"},
+                    "email_address": {"type": "string", "description": "Guest's email address"},
+                    "email_content": {
+                        "type": "object",
+                        "description": "Email subject and body",
+                        "properties": {
+                            "subject": {"type": "string", "description": "Email subject line"},
+                            "body": {"type": "string", "description": "Email body text (plain text or markdown)"}
+                        },
+                        "required": ["subject", "body"]
+                    }
+                },
+                "required": ["guest_name", "email_address", "email_content"]
+            }
+        }
+    },
 ]

@@ -39,17 +39,12 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  // Form state
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<Record<string, any>>({
     name: '', webhook_path: '', business_name: '',
     timezone: 'UTC', timezone_offset: '+00:00',
     workday_start: '09:00', workday_end: '17:00',
-    calendar_provider: 'google',
-    // Google
-    google_service_account_json: '', google_calendar_id: '',
-    // Microsoft
-    microsoft_client_id: '', microsoft_client_secret: '',
-    microsoft_tenant_id: '', microsoft_user_email: '',
+    calcom_api_key: '',
+    calcom_event_type_id: '',
   })
 
   useEffect(() => {
@@ -59,20 +54,21 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
         const d = res.data
         setForm((f) => ({
           ...f,
-          name: d.name, webhook_path: d.webhook_path,
-          business_name: d.business_name, timezone: d.timezone,
-          timezone_offset: d.timezone_offset, workday_start: d.workday_start,
-          workday_end: d.workday_end, calendar_provider: d.calendar_provider,
-          google_calendar_id: d.google_calendar_id || '',
-          microsoft_client_id: d.microsoft_client_id || '',
-          microsoft_tenant_id: d.microsoft_tenant_id || '',
-          microsoft_user_email: d.microsoft_user_email || '',
+          name: d.name,
+          webhook_path: d.webhook_path,
+          business_name: d.business_name,
+          timezone: d.timezone,
+          timezone_offset: d.timezone_offset,
+          workday_start: d.workday_start,
+          workday_end: d.workday_end,
+          calcom_event_type_id: d.calcom_event_type_id || '',
+          // calcom_api_key intentionally left blank — shows "configured" badge instead
         }))
       })
     }
   }, [id, isNew])
 
-  function setField(key: string, value: string) {
+  function setField(key: string, value: any) {
     setForm((f) => {
       const updated = { ...f, [key]: value }
       if (key === 'timezone') {
@@ -87,7 +83,7 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
     setSuccess('')
     setSaving(true)
     try {
-      const payload: Record<string, string> = {
+      const payload: Record<string, any> = {
         name: form.name,
         webhook_path: form.webhook_path,
         business_name: form.business_name,
@@ -95,17 +91,10 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
         timezone_offset: form.timezone_offset,
         workday_start: form.workday_start,
         workday_end: form.workday_end,
-        calendar_provider: form.calendar_provider,
       }
-      if (form.calendar_provider === 'google') {
-        if (form.google_service_account_json) payload.google_service_account_json = form.google_service_account_json
-        payload.google_calendar_id = form.google_calendar_id
-      } else {
-        payload.microsoft_client_id = form.microsoft_client_id
-        if (form.microsoft_client_secret) payload.microsoft_client_secret = form.microsoft_client_secret
-        payload.microsoft_tenant_id = form.microsoft_tenant_id
-        payload.microsoft_user_email = form.microsoft_user_email
-      }
+
+      if (form.calcom_api_key) payload.calcom_api_key = form.calcom_api_key
+      if (form.calcom_event_type_id) payload.calcom_event_type_id = parseInt(form.calcom_event_type_id)
 
       if (isNew) {
         const res = await api.post('/instances', payload)
@@ -205,7 +194,6 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
         </nav>
       </div>
 
-      {/* Tab Content */}
       {tab === 'Configuration' && (
         <ConfigTab form={form} setField={setField} TIMEZONES={TIMEZONES} />
       )}

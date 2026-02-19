@@ -32,13 +32,8 @@ export interface Instance {
   id: string
   name: string
   webhook_path: string
-  calendar_provider: string
-  google_calendar_id?: string
-  google_service_account_configured: boolean
-  microsoft_client_id?: string
-  microsoft_tenant_id?: string
-  microsoft_user_email?: string
-  microsoft_secret_configured: boolean
+  calcom_event_type_id?: number
+  calcom_api_key_configured: boolean
   timezone: string
   timezone_offset: string
   business_name: string
@@ -55,6 +50,11 @@ export interface GlobalSettings {
   llm_api_key_set: boolean
   llm_model: string
   updated_at: string
+  smtp_host?: string
+  smtp_port?: number
+  smtp_user?: string
+  smtp_from_email?: string
+  smtp_configured: boolean
 }
 
 export interface GuestRecord {
