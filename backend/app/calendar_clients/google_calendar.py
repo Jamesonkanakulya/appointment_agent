@@ -21,21 +21,11 @@ class GoogleCalendarClient(CalendarClient):
         """
         self.calendar_id = calendar_id
         creds_info = json.loads(service_account_json)
+        # Use service account credentials directly — no user impersonation.
+        # The calendar must be shared with the service account's client_email.
         credentials = service_account.Credentials.from_service_account_info(
             creds_info, scopes=SCOPES
         )
-        # Only impersonate if calendar_id is a plain user email (DWD use case).
-        # Skip if it's a resource/group calendar, a domain, or the SA's own email.
-        sa_email = creds_info.get("client_email", "")
-        is_user_email = (
-            "@" in calendar_id
-            and not calendar_id.endswith("@group.calendar.google.com")
-            and not calendar_id.endswith("resource.calendar.google.com")
-            and calendar_id != sa_email
-        )
-        if is_user_email:
-            credentials = credentials.with_subject(calendar_id)
-
         self._service = build("calendar", "v3", credentials=credentials, cache_discovery=False)
 
     async def check_availability(

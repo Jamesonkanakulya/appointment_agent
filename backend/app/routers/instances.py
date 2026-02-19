@@ -1,4 +1,7 @@
 import uuid
+import json
+import traceback
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -137,6 +140,91 @@ async def update_instance(
     await db.commit()
     await db.refresh(inst)
     return _to_response(inst)
+
+
+@router.get("/{instance_id}/test-calendar")
+async def test_calendar(
+    instance_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user)
+):
+    """Test calendar credentials by attempting a freebusy query for today."""
+    result = await db.execute(select(Instance).where(Instance.id == instance_id))
+    inst = result.scalar_one_or_none()
+    if not inst:
+        raise HTTPException(status_code=404, detail="Instance not found")
+
+    debug = {
+        "instance_id": str(inst.id),
+        "calendar_provider": inst.calendar_provider,
+        "calendar_id": inst.google_calendar_id if inst.calendar_provider == "google" else inst.microsoft_user_email,
+        "credentials_present": False,
+        "credentials_valid_json": False,
+        "sa_client_email": None,
+        "api_call_result": None,
+        "error": None,
+        "traceback": None,
+    }
+
+    try:
+        if inst.calendar_provider == "google":
+            if not inst.google_service_account_json:
+                debug["error"] = "No service account JSON stored"
+                return debug
+            if not inst.google_calendar_id:
+                debug["error"] = "No calendar ID configured"
+                return debug
+
+            # Decrypt and validate JSON
+            sa_json = decrypt(inst.google_service_account_json)
+            debug["credentials_present"] = True
+            creds_info = json.loads(sa_json)
+            debug["credentials_valid_json"] = True
+            debug["sa_client_email"] = creds_info.get("client_email")
+            debug["sa_project_id"] = creds_info.get("project_id")
+            debug["sa_type"] = creds_info.get("type")
+
+            # Attempt freebusy query
+            from ..calendar_clients.google_calendar import GoogleCalendarClient
+            client = GoogleCalendarClient(sa_json, inst.google_calendar_id)
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            slots = await client.check_availability(
+                date=today,
+                timezone=inst.timezone,
+                workday_start=inst.workday_start,
+                workday_end=inst.workday_end,
+            )
+            debug["api_call_result"] = {"slots_found": len(slots), "slots": slots}
+
+        elif inst.calendar_provider == "microsoft":
+            if not all([inst.microsoft_client_id, inst.microsoft_client_secret,
+                        inst.microsoft_tenant_id, inst.microsoft_user_email]):
+                debug["error"] = "Microsoft credentials incomplete"
+                return debug
+            debug["credentials_present"] = True
+
+            secret = decrypt(inst.microsoft_client_secret)
+            from ..calendar_clients.microsoft_graph import MicrosoftGraphClient
+            client = MicrosoftGraphClient(
+                client_id=inst.microsoft_client_id,
+                client_secret=secret,
+                tenant_id=inst.microsoft_tenant_id,
+                user_email=inst.microsoft_user_email,
+            )
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            slots = await client.check_availability(
+                date=today,
+                timezone=inst.timezone,
+                workday_start=inst.workday_start,
+                workday_end=inst.workday_end,
+            )
+            debug["api_call_result"] = {"slots_found": len(slots), "slots": slots}
+
+    except Exception as e:
+        debug["error"] = str(e)
+        debug["traceback"] = traceback.format_exc()
+
+    return debug
 
 
 @router.delete("/{instance_id}", status_code=204)
