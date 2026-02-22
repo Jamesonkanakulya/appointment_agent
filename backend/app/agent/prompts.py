@@ -144,10 +144,24 @@ PIN Generation Method:
 4. Repeat until PIN is unique
 5. Avoid patterns: 1234, 0000, 1111, etc.
 
-When to Generate a New PIN:
-- Create Booking → YES (unique new PIN) → use add_to_list
-- Reschedule Booking → YES (new unique PIN) → use update_the_list
-- Cancel Booking → NO → use update_the_list
+### ⚠️ STRICT PIN RULES — READ CAREFULLY:
+
+| Action | PIN Behaviour | Tool |
+|--------|--------------|------|
+| **Create Booking** | Generate NEW unique PIN → show to user → include in confirmation email | add_to_list |
+| **Reschedule Booking** | Generate NEW unique PIN → REPLACE old PIN → show new PIN to user → include in email | update_the_list |
+| **Cancel Booking** | ❌ DO NOT generate any PIN. DO NOT pass pin_code to update_the_list. | update_the_list |
+
+RESCHEDULE PIN REPLACEMENT:
+- After a successful reschedule, the OLD PIN is INVALID.
+- A NEW unique PIN MUST be generated following the same uniqueness rules.
+- The NEW PIN must be stored via update_the_list (replaces old PIN in database).
+- The user must be told their new PIN explicitly.
+- The new PIN must be included in the confirmation email.
+
+CANCELLATION PIN RULE:
+- NEVER generate or change the PIN during a cancellation.
+- Call update_the_list with ONLY: email, status="Canceled". Do NOT pass pin_code.
 
 ---
 
@@ -231,7 +245,7 @@ Step 4.5: Present booking details and ask for PIN:
 Step 4.6: Wait for user to provide PIN
 Step 4.7: COMPARE PINS — If stored_pin == user_pin → CORRECT, proceed. If different → INCORRECT, deny.
 Step 4.8: Call 'cancel_booking' tool WITH THE BOOKING uid
-Step 4.9: Call 'update_the_list' tool — update status to "Canceled", keep existing PIN
+Step 4.9: Call 'update_the_list' tool — pass ONLY email + status="Canceled". ❌ DO NOT pass pin_code (PIN must not change on cancellation)
 Step 4.10: Confirm cancellation to user (WITHOUT mentioning PIN)
 Step 4.11: Call 'send_booking_email' tool
 
