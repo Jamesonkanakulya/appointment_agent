@@ -5,7 +5,7 @@ Cal.com is used for all calendar operations.
 Guest records (PIN, status) are stored in PostgreSQL.
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 import aiosmtplib
 from email.mime.text import MIMEText
@@ -19,6 +19,17 @@ from ..encryption import decrypt
 from ..calendar_clients.calcom import CalComClient
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_dt(value: str) -> datetime | None:
+    """Parse an ISO 8601 string to a naive UTC datetime for DB storage."""
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+    except (ValueError, AttributeError):
+        return None
 
 
 # ─── Cal.com client factory ───────────────────────────────────────────────────
@@ -187,12 +198,7 @@ async def _add_to_list(args: dict, instance: Instance, db: AsyncSession) -> dict
     if not email or not pin_code:
         return {"success": False, "error": "email and pin_code are required"}
 
-    booking_time = None
-    if booking_time_str:
-        try:
-            booking_time = datetime.fromisoformat(booking_time_str.replace("Z", "+00:00"))
-        except ValueError:
-            pass
+    booking_time = _parse_dt(booking_time_str) if booking_time_str else None
 
     record = GuestRecord(
         instance_id=instance.id,
@@ -236,10 +242,7 @@ async def _update_the_list(args: dict, instance: Instance, db: AsyncSession) -> 
     if pin_code is not None:
         record.pin_code = str(pin_code)
     if booking_time_str is not None:
-        try:
-            record.booking_time = datetime.fromisoformat(booking_time_str.replace("Z", "+00:00"))
-        except ValueError:
-            pass
+        record.booking_time = _parse_dt(booking_time_str)
     if meeting_title is not None:
         record.meeting_title = meeting_title
     if booking_uid is not None:
