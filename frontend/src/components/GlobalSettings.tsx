@@ -64,6 +64,7 @@ export default function GlobalSettings() {
     try {
       await api.put('/settings', {
         llm_provider: provider === 'openai_github' ? 'openai' : provider,
+        llm_provider_id: provider,
         llm_base_url: baseUrl,
         llm_api_key: apiKey || undefined,
         llm_model: model,
@@ -125,13 +126,16 @@ export default function GlobalSettings() {
                 key={p.id}
                 type="button"
                 onClick={() => selectProvider(p.id)}
-                className={`py-2.5 px-3 border-2 rounded-xl text-sm font-medium text-left transition-all ${
+                className={`py-2.5 px-3 border-2 rounded-xl text-sm font-medium text-left transition-all flex items-center justify-between ${
                   provider === p.id
                     ? 'border-blue-500 bg-blue-50 text-blue-700'
                     : 'border-gray-200 text-gray-600 hover:border-gray-300'
                 }`}
               >
-                {p.label}
+                <span>{p.label}</span>
+                {settings?.provider_keys_set?.[p.id] && (
+                  <span className="ml-1.5 w-2 h-2 rounded-full bg-green-500 flex-shrink-0" title="API key saved" />
+                )}
               </button>
             ))}
           </div>
@@ -139,14 +143,14 @@ export default function GlobalSettings() {
 
         <Field
           label="API Key"
-          hint={settings?.llm_api_key_set ? '✓ API key is saved — enter a new value to update' : 'Required for LLM access'}
+          hint={settings?.provider_keys_set?.[provider] ? '✓ Key saved for this provider — enter a new value to update' : 'Required for LLM access'}
         >
           <input
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             className="input"
-            placeholder={settings?.llm_api_key_set ? '(unchanged)' : 'Enter your API key'}
+            placeholder={settings?.provider_keys_set?.[provider] ? '(key saved — leave blank to keep)' : 'Enter your API key'}
           />
         </Field>
 

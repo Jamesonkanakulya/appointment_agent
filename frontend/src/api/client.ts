@@ -56,6 +56,7 @@ export interface GlobalSettings {
   llm_api_key_set: boolean
   llm_model: string
   updated_at: string
+  provider_keys_set: Record<string, boolean>
   smtp_host?: string
   smtp_port?: number
   smtp_user?: string

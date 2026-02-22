@@ -27,6 +27,7 @@ class UserResponse(BaseModel):
 # Global Settings
 class GlobalSettingsUpdate(BaseModel):
     llm_provider: Optional[str] = None
+    llm_provider_id: Optional[str] = None  # Frontend provider id (e.g. "openai_github") for per-key storage
     llm_base_url: Optional[str] = None
     llm_api_key: Optional[str] = None
     llm_model: Optional[str] = None
@@ -44,6 +45,7 @@ class GlobalSettingsResponse(BaseModel):
     llm_api_key_set: bool
     llm_model: str
     updated_at: datetime
+    provider_keys_set: dict = {}  # e.g. {"openai_github": true, "anthropic": true}
     # SMTP (password not exposed)
     smtp_host: Optional[str] = None
     smtp_port: Optional[int] = None

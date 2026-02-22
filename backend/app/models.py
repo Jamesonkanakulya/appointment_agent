@@ -25,6 +25,7 @@ class GlobalSettings(Base):
     llm_base_url: Mapped[str] = mapped_column(Text, default="https://models.github.ai/inference")
     llm_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)  # Fernet-encrypted
     llm_model: Mapped[str] = mapped_column(String(100), default="openai/gpt-4o")
+    provider_api_keys: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON {provider_id: enc_key}
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # SMTP email settings (optional)
