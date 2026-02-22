@@ -66,6 +66,12 @@ class InstanceCreate(BaseModel):
     business_name: str
     workday_start: str = "09:00"
     workday_end: str = "17:00"
+    # Per-instance SMTP
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from_email: Optional[str] = None
 
 
 class InstanceUpdate(BaseModel):
@@ -78,6 +84,12 @@ class InstanceUpdate(BaseModel):
     business_name: Optional[str] = None
     workday_start: Optional[str] = None
     workday_end: Optional[str] = None
+    # Per-instance SMTP
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from_email: Optional[str] = None
 
 
 class InstanceResponse(BaseModel):
@@ -94,6 +106,12 @@ class InstanceResponse(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    # Per-instance SMTP (password not exposed)
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_user: Optional[str] = None
+    smtp_from_email: Optional[str] = None
+    smtp_configured: bool = False
 
     class Config:
         from_attributes = True

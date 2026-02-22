@@ -46,6 +46,13 @@ class Instance(Base):
     calcom_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)  # Fernet-encrypted
     calcom_event_type_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Per-instance SMTP (overrides Global Settings when configured)
+    smtp_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_port: Mapped[int] = mapped_column(Integer, default=587)
+    smtp_user: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    smtp_password: Mapped[str | None] = mapped_column(Text, nullable=True)  # Fernet-encrypted
+    smtp_from_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     # Common config
     timezone: Mapped[str] = mapped_column(String(50), default="UTC")
     timezone_offset: Mapped[str] = mapped_column(String(10), default="+00:00")

@@ -42,6 +42,12 @@ export interface Instance {
   is_active: boolean
   created_at: string
   updated_at: string
+  // Per-instance SMTP
+  smtp_host?: string
+  smtp_port?: number
+  smtp_user?: string
+  smtp_from_email?: string
+  smtp_configured: boolean
 }
 
 export interface GlobalSettings {

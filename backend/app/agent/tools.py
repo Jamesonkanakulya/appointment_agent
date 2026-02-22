@@ -279,21 +279,32 @@ async def _send_booking_email(args: dict, instance: Instance, db: AsyncSession) 
     if not email_address:
         return {"success": False, "error": "email_address is required"}
 
-    # Load SMTP settings from global settings
-    gs_result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
-    gs = gs_result.scalar_one_or_none()
+    # Prefer instance-level SMTP; fall back to global settings
+    smtp_host = instance.smtp_host
+    smtp_port = instance.smtp_port or 587
+    smtp_user = instance.smtp_user
+    smtp_password_enc = instance.smtp_password
+    from_email = instance.smtp_from_email or instance.smtp_user
 
-    if not gs or not gs.smtp_host or not gs.smtp_user or not gs.smtp_password:
-        logger.info(f"SMTP not configured — skipping email to {email_address}")
-        return {
-            "success": True,
-            "note": "SMTP not configured in Global Settings. Email not sent.",
-            "would_have_sent_to": email_address,
-            "subject": subject,
-        }
+    if not (smtp_host and smtp_user and smtp_password_enc):
+        gs_result = await db.execute(select(GlobalSettings).where(GlobalSettings.id == 1))
+        gs = gs_result.scalar_one_or_none()
+        if gs and gs.smtp_host and gs.smtp_user and gs.smtp_password:
+            smtp_host = gs.smtp_host
+            smtp_port = gs.smtp_port or 587
+            smtp_user = gs.smtp_user
+            smtp_password_enc = gs.smtp_password
+            from_email = gs.smtp_from_email or gs.smtp_user
+        else:
+            logger.info(f"SMTP not configured — skipping email to {email_address}")
+            return {
+                "success": True,
+                "note": "SMTP not configured. Email not sent.",
+                "would_have_sent_to": email_address,
+                "subject": subject,
+            }
 
-    smtp_password = decrypt(gs.smtp_password)
-    from_email = gs.smtp_from_email or gs.smtp_user
+    smtp_password = decrypt(smtp_password_enc)
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
@@ -304,9 +315,9 @@ async def _send_booking_email(args: dict, instance: Instance, db: AsyncSession) 
     try:
         await aiosmtplib.send(
             msg,
-            hostname=gs.smtp_host,
-            port=gs.smtp_port or 587,
-            username=gs.smtp_user,
+            hostname=smtp_host,
+            port=smtp_port,
+            username=smtp_user,
             password=smtp_password,
             start_tls=True,
         )

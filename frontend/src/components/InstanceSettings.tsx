@@ -5,9 +5,9 @@ import CalendarProviderForm from './CalendarProviderForm'
 import WebhookPanel from './WebhookPanel'
 import GuestTable from './GuestTable'
 import SessionsPanel from './SessionsPanel'
-import { Save, Trash2, AlertCircle } from 'lucide-react'
+import { Save, Trash2, AlertCircle, CheckCircle, Mail } from 'lucide-react'
 
-const TABS = ['Configuration', 'Calendar', 'Webhook', 'Guests', 'Sessions']
+const TABS = ['Configuration', 'Calendar', 'Email', 'Webhook', 'Guests', 'Sessions']
 
 const TIMEZONES = [
   'UTC', 'Asia/Dubai', 'America/New_York', 'America/Chicago', 'America/Denver',
@@ -45,6 +45,12 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
     workday_start: '09:00', workday_end: '17:00',
     calcom_api_key: '',
     calcom_event_type_id: '',
+    // SMTP
+    smtp_host: '',
+    smtp_port: '587',
+    smtp_user: '',
+    smtp_password: '',
+    smtp_from_email: '',
   })
 
   useEffect(() => {
@@ -63,6 +69,11 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
           workday_end: d.workday_end,
           calcom_event_type_id: d.calcom_event_type_id || '',
           // calcom_api_key intentionally left blank — shows "configured" badge instead
+          smtp_host: d.smtp_host || '',
+          smtp_port: String(d.smtp_port || 587),
+          smtp_user: d.smtp_user || '',
+          smtp_from_email: d.smtp_from_email || '',
+          // smtp_password intentionally left blank
         }))
       })
     }
@@ -96,14 +107,23 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
       if (form.calcom_api_key) payload.calcom_api_key = form.calcom_api_key
       if (form.calcom_event_type_id) payload.calcom_event_type_id = parseInt(form.calcom_event_type_id)
 
+      // SMTP — only send fields that are set
+      if (form.smtp_host !== undefined) payload.smtp_host = form.smtp_host || null
+      if (form.smtp_port) payload.smtp_port = parseInt(form.smtp_port) || 587
+      if (form.smtp_user !== undefined) payload.smtp_user = form.smtp_user || null
+      if (form.smtp_password) payload.smtp_password = form.smtp_password
+      if (form.smtp_from_email !== undefined) payload.smtp_from_email = form.smtp_from_email || null
+
       if (isNew) {
         const res = await api.post('/instances', payload)
         setSuccess('Instance created successfully.')
         onSave?.()
         navigate(`/instance/${res.data.id}`)
       } else {
-        await api.put(`/instances/${id}`, payload)
+        const res = await api.put(`/instances/${id}`, payload)
+        setInstance(res.data)
         setSuccess('Settings saved successfully.')
+        setForm((f) => ({ ...f, smtp_password: '' }))
         onSave?.()
       }
     } catch (err: any) {
@@ -125,7 +145,8 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
   }
 
   const showTabs = !isNew
-  const displayTabs = showTabs ? TABS : ['Configuration', 'Calendar']
+  const displayTabs = showTabs ? TABS : ['Configuration', 'Calendar', 'Email']
+  const saveableTabs = ['Configuration', 'Calendar', 'Email']
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -150,7 +171,7 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
               Delete
             </button>
           )}
-          {(tab === 'Configuration' || tab === 'Calendar' || isNew) && (
+          {(saveableTabs.includes(tab) || isNew) && (
             <button
               onClick={handleSave}
               disabled={saving}
@@ -189,6 +210,9 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
               }`}
             >
               {t}
+              {t === 'Email' && instance?.smtp_configured && (
+                <span className="ml-1.5 inline-block w-2 h-2 bg-green-500 rounded-full" />
+              )}
             </button>
           ))}
         </nav>
@@ -200,6 +224,9 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
       {tab === 'Calendar' && (
         <CalendarProviderForm form={form} setField={setField} instance={instance} />
       )}
+      {tab === 'Email' && (
+        <EmailTab form={form} setField={setField} instance={instance} />
+      )}
       {tab === 'Webhook' && instance && (
         <WebhookPanel instance={instance} />
       )}
@@ -209,6 +236,91 @@ export default function InstanceSettings({ isNew = false, onSave }: Props) {
       {tab === 'Sessions' && instance && (
         <SessionsPanel instanceId={instance.id} />
       )}
+    </div>
+  )
+}
+
+function EmailTab({ form, setField, instance }: any) {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900">Instance Email (SMTP)</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Configure a dedicated sender for this instance. Overrides the global SMTP settings.
+          </p>
+        </div>
+        {instance?.smtp_configured && (
+          <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded-full">
+            <CheckCircle size={12} />
+            Configured
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="SMTP Host">
+          <input
+            type="text"
+            value={form.smtp_host}
+            onChange={(e) => setField('smtp_host', e.target.value)}
+            className="input"
+            placeholder="smtp.gmail.com"
+          />
+        </Field>
+        <Field label="SMTP Port">
+          <input
+            type="number"
+            value={form.smtp_port}
+            onChange={(e) => setField('smtp_port', e.target.value)}
+            className="input"
+            placeholder="587"
+          />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Username / Email">
+          <input
+            type="text"
+            value={form.smtp_user}
+            onChange={(e) => setField('smtp_user', e.target.value)}
+            className="input"
+            placeholder="you@gmail.com"
+          />
+        </Field>
+        <Field
+          label="Password / App Password"
+          hint={instance?.smtp_configured ? 'Leave blank to keep existing password' : ''}
+        >
+          <input
+            type="password"
+            value={form.smtp_password}
+            onChange={(e) => setField('smtp_password', e.target.value)}
+            className="input"
+            placeholder={instance?.smtp_configured ? '••••••••' : 'Enter password'}
+            autoComplete="new-password"
+          />
+        </Field>
+      </div>
+
+      <Field label="From Email" hint="Displayed as the sender address. Defaults to username if blank.">
+        <input
+          type="email"
+          value={form.smtp_from_email}
+          onChange={(e) => setField('smtp_from_email', e.target.value)}
+          className="input"
+          placeholder="bookings@yourbusiness.com"
+        />
+      </Field>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-xs text-blue-800 space-y-1">
+        <div className="flex items-center gap-1.5 font-medium">
+          <Mail size={13} />
+          Gmail App Password
+        </div>
+        <p>Go to Google Account → Security → 2-Step Verification → App passwords. Generate one for "Mail" and paste it as the password above.</p>
+      </div>
     </div>
   )
 }

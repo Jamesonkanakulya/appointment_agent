@@ -12,6 +12,7 @@ router = APIRouter(prefix="/api/instances", tags=["instances"])
 
 
 def _to_response(inst: Instance) -> InstanceResponse:
+    smtp_configured = bool(inst.smtp_host and inst.smtp_user and inst.smtp_password)
     return InstanceResponse(
         id=inst.id,
         name=inst.name,
@@ -26,6 +27,11 @@ def _to_response(inst: Instance) -> InstanceResponse:
         is_active=inst.is_active,
         created_at=inst.created_at,
         updated_at=inst.updated_at,
+        smtp_host=inst.smtp_host,
+        smtp_port=inst.smtp_port,
+        smtp_user=inst.smtp_user,
+        smtp_from_email=inst.smtp_from_email,
+        smtp_configured=smtp_configured,
     )
 
 
@@ -58,6 +64,11 @@ async def create_instance(
         business_name=body.business_name,
         workday_start=body.workday_start,
         workday_end=body.workday_end,
+        smtp_host=body.smtp_host,
+        smtp_port=body.smtp_port or 587,
+        smtp_user=body.smtp_user,
+        smtp_password=encrypt(body.smtp_password) if body.smtp_password else None,
+        smtp_from_email=body.smtp_from_email,
     )
     db.add(inst)
     await db.commit()
@@ -111,6 +122,16 @@ async def update_instance(
         inst.workday_start = body.workday_start
     if body.workday_end is not None:
         inst.workday_end = body.workday_end
+    if body.smtp_host is not None:
+        inst.smtp_host = body.smtp_host or None
+    if body.smtp_port is not None:
+        inst.smtp_port = body.smtp_port
+    if body.smtp_user is not None:
+        inst.smtp_user = body.smtp_user or None
+    if body.smtp_password is not None:
+        inst.smtp_password = encrypt(body.smtp_password) if body.smtp_password else None
+    if body.smtp_from_email is not None:
+        inst.smtp_from_email = body.smtp_from_email or None
 
     await db.commit()
     await db.refresh(inst)
