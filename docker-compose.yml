@@ -16,10 +16,10 @@ services:
       timeout: 5s
       retries: 10
 
-  backend:
+  app:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "8000:8000"
