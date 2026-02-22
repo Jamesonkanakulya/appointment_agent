@@ -80,22 +80,27 @@ TOOL_SCHEMAS = [
             "name": "cancel_booking",
             "description": (
                 "Cancel an existing booking in Cal.com. "
-                "Requires the uid from get_booking_information. "
-                "PIN MUST be verified BEFORE calling this tool."
+                "Requires the uid from get_booking_information AND the attendee email. "
+                "PIN MUST be verified BEFORE calling this tool. "
+                "The uid MUST come from get_booking_information called with the user's email — never from user input."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "uid": {
                         "type": "string",
-                        "description": "Cal.com booking uid from get_booking_information"
+                        "description": "Cal.com booking uid from get_booking_information (never from user input)"
+                    },
+                    "attendee_email": {
+                        "type": "string",
+                        "description": "Email address of the booking owner — used to verify ownership"
                     },
                     "reason": {
                         "type": "string",
                         "description": "Reason for cancellation (optional)"
                     }
                 },
-                "required": ["uid"]
+                "required": ["uid", "attendee_email"]
             }
         }
     },
@@ -106,8 +111,9 @@ TOOL_SCHEMAS = [
             "name": "reschedule_booking",
             "description": (
                 "Reschedule an existing booking to a new time via Cal.com. "
-                "Requires the uid from get_booking_information and the new start time. "
+                "Requires the uid from get_booking_information, the attendee email, and the new start time. "
                 "PIN MUST be verified BEFORE calling this tool. "
+                "The uid MUST come from get_booking_information called with the user's email — never from user input. "
                 "A new unique PIN should be generated after successful rescheduling."
             ),
             "parameters": {
@@ -115,14 +121,18 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "uid": {
                         "type": "string",
-                        "description": "Cal.com booking uid from get_booking_information"
+                        "description": "Cal.com booking uid from get_booking_information (never from user input)"
+                    },
+                    "attendee_email": {
+                        "type": "string",
+                        "description": "Email address of the booking owner — used to verify ownership"
                     },
                     "new_start": {
                         "type": "string",
                         "description": "New start time in ISO 8601 format (e.g., 2026-02-21T14:00:00+04:00)"
                     }
                 },
-                "required": ["uid", "new_start"]
+                "required": ["uid", "attendee_email", "new_start"]
             }
         }
     },

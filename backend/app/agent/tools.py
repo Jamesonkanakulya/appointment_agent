@@ -128,12 +128,37 @@ async def _get_booking_information(args: dict, instance: Instance, db: AsyncSess
     return {"found": True, "bookings": bookings}
 
 
+async def _verify_booking_ownership(uid: str, email: str, instance: Instance, db: AsyncSession) -> bool:
+    """
+    Verify a Cal.com booking uid belongs to the given email address.
+    Checks the local GuestRecord (fast). If no local record exists, allows the
+    action (booking may predate the agent) since get_booking_information already
+    filtered results by email.
+    """
+    result = await db.execute(
+        select(GuestRecord)
+        .where(GuestRecord.instance_id == instance.id)
+        .where(GuestRecord.calendar_event_id == uid)
+    )
+    record = result.scalars().first()
+    if record:
+        return record.email.lower() == email.lower()
+    # No local record — trust that the uid came from an email-filtered tool call
+    return True
+
+
 async def _cancel_booking(args: dict, instance: Instance, db: AsyncSession) -> dict:
     uid = args.get("uid", "")
+    attendee_email = args.get("attendee_email", "").lower().strip()
     reason = args.get("reason", "User requested cancellation")
 
     if not uid:
         return {"error": "uid is required"}
+
+    if attendee_email:
+        if not await _verify_booking_ownership(uid, attendee_email, instance, db):
+            logger.warning(f"Ownership check failed: uid={uid} does not belong to {attendee_email}")
+            return {"error": "Access denied: this booking does not belong to the provided email address."}
 
     client = _get_calcom_client(instance)
     success = await client.cancel_booking(uid=uid, reason=reason)
@@ -142,10 +167,16 @@ async def _cancel_booking(args: dict, instance: Instance, db: AsyncSession) -> d
 
 async def _reschedule_booking(args: dict, instance: Instance, db: AsyncSession) -> dict:
     uid = args.get("uid", "")
+    attendee_email = args.get("attendee_email", "").lower().strip()
     new_start = args.get("new_start", "")
 
     if not uid or not new_start:
         return {"error": "uid and new_start are required"}
+
+    if attendee_email:
+        if not await _verify_booking_ownership(uid, attendee_email, instance, db):
+            logger.warning(f"Ownership check failed: uid={uid} does not belong to {attendee_email}")
+            return {"error": "Access denied: this booking does not belong to the provided email address."}
 
     client = _get_calcom_client(instance)
     result = await client.reschedule_booking(uid=uid, new_start=new_start)
